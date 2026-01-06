@@ -1,0 +1,103 @@
+from dataclasses import dataclass
+from typing import Protocol
+
+
+class MaleniaState(Protocol):
+    def name(self) -> str:
+        ...
+
+    def attack(self, boss: "MaleniaBoss") -> str:
+        ...
+
+
+class BladeOfMiquellaState:
+    def name(self) -> str:
+        return "BladeOfMiquella"
+
+    def attack(self, boss: "MaleniaBoss") -> str:
+        return "Quick Slash"
+
+
+class GoddessOfRotState:
+    def name(self) -> str:
+        return "GoddessOfRot"
+
+    def attack(self, boss: "MaleniaBoss") -> str:
+        return "Scarlet Aeonia"
+
+
+class DamageError(ValueError):
+    pass
+
+
+def _state_for_phase(phase: int) -> MaleniaState:
+    if phase == 1:
+        return BladeOfMiquellaState()
+    return GoddessOfRotState()
+
+
+@dataclass
+class MaleniaBoss:
+    max_hp: int
+    phase: int
+    hp: int
+    _state: MaleniaState
+    is_defeated: bool = False
+
+    @classmethod
+    def create(cls, max_hp: int = 100) -> "MaleniaBoss":
+        return cls(
+            max_hp=max_hp,
+            phase=1,
+            hp=max_hp,
+            _state=_state_for_phase(1),
+            is_defeated=False,
+        )
+
+    def phase_name(self) -> str:
+        return self._state.name()
+
+    def attack(self) -> str:
+        return self._state.attack(self)
+
+    def phase_max_hp(self) -> int:
+        # phase 1: 100%, phase 2: 80%
+        if self.phase == 1:
+            return self.max_hp
+        return int(self.max_hp * 0.80)
+
+    def take_damage(self, amount: int) -> None:
+        if amount <= 0:
+            raise DamageError("damage amount must be > 0")
+        if self.is_defeated:
+            return
+
+        self.hp -= amount
+        if self.hp > 0:
+            return
+
+        # hp <= 0
+        if self.phase == 1:
+            self.phase = 2
+            self._state = _state_for_phase(2)
+            self.hp = self.phase_max_hp()  # restore to 80%
+            return
+
+        self.hp = 0
+        self.is_defeated = True
+
+
+def main() -> int:
+    boss = MaleniaBoss.create(max_hp=100)
+    print("START:", boss.phase, boss.phase_name(), "HP=", boss.hp, "attack=", boss.attack())
+
+    boss.take_damage(110)
+    print("AFTER P1:", boss.phase, boss.phase_name(), "HP=", boss.hp, "attack=", boss.attack())
+
+    boss.take_damage(90)
+    print("AFTER P2:", boss.phase, boss.phase_name(), "HP=", boss.hp, "defeated=", boss.is_defeated)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
